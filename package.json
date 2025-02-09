@@ -1,0 +1,11 @@
+{
+  "name": "consulting-project",
+  "version": "1.0.0",
+  "description": "A consulting website with separate server and client folders.",
+  "scripts": {
+    "dev": "concurrently \"npm run dev --prefix server\" \"npm start --prefix client\""
+  },
+  "devDependencies": {
+    "concurrently": "^7.6.0"
+  }
+}
