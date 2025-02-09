@@ -34,3 +34,5 @@ jspm_packages/
 # Misc
 .DS_Store
 coverage/
+
+.env
