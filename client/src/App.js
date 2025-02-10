@@ -19,6 +19,7 @@ import {
   FormControl,
   FormLabel,
   Input,
+  useColorModeValue,
 } from '@chakra-ui/react';
 
 function App() {
@@ -39,7 +40,7 @@ function App() {
   // Track form input changes
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    setFormData(prev => ({ ...prev, [name]: value }));
   };
 
   // Handle form submission
@@ -63,31 +64,38 @@ function App() {
     }
   };
 
+  // Navbar styling
+  const navBg = useColorModeValue('rgba(0,0,0,0.7)', 'rgba(0,0,0,0.5)');
+  const navTextColor = useColorModeValue('gray.100', 'gray.50');
+
   return (
-    <Box w="full" minH="100vh" display="flex" flexDirection="column">
+    <Box w="full" minH="100vh" display="flex" flexDirection="column" bg="black">
       {/* NAVBAR */}
       <Flex
         as="nav"
-        bg="white"
-        boxShadow="md"
+        bg={navBg}
+        color={navTextColor}
+        backdropFilter="blur(5px)"
         px={8}
-        py={5}
+        py={4}
         align="center"
         justify="space-between"
         position="sticky"
         top={0}
         zIndex={10}
       >
-        <Heading fontSize="2xl" color="gray.800">
+        <Heading fontSize="2xl">
           MyConsulting
-          <Box as="span" color="blue.600">Pro</Box>
+          <Box as="span" color="red.400" ml={1}>
+            Pro
+          </Box>
         </Heading>
 
-        <Flex gap={6} fontWeight="medium" color="gray.600" fontSize="lg">
-          <Box cursor="pointer" _hover={{ color: 'blue.600' }}>Home</Box>
-          <Box cursor="pointer" _hover={{ color: 'blue.600' }}>Services</Box>
-          <Box cursor="pointer" _hover={{ color: 'blue.600' }}>About</Box>
-          <Box cursor="pointer" _hover={{ color: 'blue.600' }}>Contact</Box>
+        <Flex gap={6} fontWeight="medium" fontSize="lg">
+          <Box cursor="pointer" _hover={{ color: 'red.300' }}>Home</Box>
+          <Box cursor="pointer" _hover={{ color: 'red.300' }}>Services</Box>
+          <Box cursor="pointer" _hover={{ color: 'red.300' }}>About</Box>
+          <Box cursor="pointer" _hover={{ color: 'red.300' }}>Contact</Box>
         </Flex>
       </Flex>
 
@@ -95,16 +103,15 @@ function App() {
       <Box
         flexGrow={1}
         position="relative"
-        bg="gray.100"
         display="flex"
         alignItems="center"
         justifyContent="center"
         overflow="hidden"
       >
-        {/* Background image */}
+        {/* Keyboard + red glow background image */}
         <Image
-          src="https://images.unsplash.com/photo-1517433456452-f9633a875f6f?ixlib=rb-4.0.3&auto=format&fit=crop&w=1470&q=80"
-          alt="Hero"
+          src="https://images.unsplash.com/photo-1593642532400-2682810df593?ixlib=rb-4.0.3&auto=format&fit=crop&w=1470&q=80"
+          alt="Keyboard Glow"
           position="absolute"
           top={0}
           left={0}
@@ -114,14 +121,14 @@ function App() {
           zIndex={0}
         />
 
-        {/* Dark overlay */}
+        {/* Strong overlay for better text contrast */}
         <Box
           position="absolute"
           top={0}
           left={0}
           w="full"
           h="full"
-          bgGradient="linear(to-r, blackAlpha.700, transparent)"
+          bgGradient="linear(to-r, blackAlpha.800, transparent)"
           zIndex={1}
         />
 
@@ -132,7 +139,7 @@ function App() {
             color="white"
             mb={6}
           >
-            Elevate Your Business with Our Consulting Expertise
+            Ignite Your Business With Our Expertise
           </Heading>
           <Text
             fontSize={{ base: 'lg', md: 'xl' }}
@@ -140,14 +147,15 @@ function App() {
             mb={8}
             fontWeight="light"
           >
-            We provide cutting-edge solutions to help you succeed in tech and beyond.
+            Cutting-edge solutions to help you power through your tech and beyond.
           </Text>
           <Button
-            colorScheme="blue"
+            bg="red.500"
+            color="white"
             size="lg"
-            onClick={onOpen}
+            _hover={{ bg: 'red.400' }}
             boxShadow="xl"
-            _hover={{ boxShadow: 'md' }}
+            onClick={onOpen}
           >
             Book Now
           </Button>
@@ -155,53 +163,78 @@ function App() {
       </Box>
 
       {/* BOOKING FORM MODAL */}
-      <Modal isOpen={isOpen} onClose={onClose}>
+      <Modal isOpen={isOpen} onClose={onClose} isCentered size="lg">
         <ModalOverlay />
-        <ModalContent>
-          <ModalHeader>Book a Quick Call</ModalHeader>
-          <ModalCloseButton />
-          <ModalBody>
+        <ModalContent
+          bgGradient="linear(to-br, #1a1a1a, #2a2a2a)"
+          border="1px solid"
+          borderColor="gray.700"
+          borderRadius="2xl"
+          boxShadow="dark-lg"
+        >
+          <ModalHeader borderBottomWidth="1px" borderColor="gray.600" color="red.300">
+            Book a Quick Call
+          </ModalHeader>
+          <ModalCloseButton color="gray.200" />
+
+          <ModalBody pb={6}>
             <form id="bookingForm" onSubmit={handleSubmit}>
               <FormControl mb={4}>
-                <FormLabel>Name</FormLabel>
+                <FormLabel color="gray.200">Name</FormLabel>
                 <Input
                   type="text"
                   name="name"
                   value={formData.name}
                   onChange={handleChange}
                   required
+                  bg="gray.800"
+                  borderColor="gray.600"
+                  color="gray.200"
+                  _focus={{ borderColor: 'red.400' }}
                 />
               </FormControl>
 
               <FormControl mb={4}>
-                <FormLabel>Email</FormLabel>
+                <FormLabel color="gray.200">Email</FormLabel>
                 <Input
                   type="email"
                   name="email"
                   value={formData.email}
                   onChange={handleChange}
                   required
+                  bg="gray.800"
+                  borderColor="gray.600"
+                  color="gray.200"
+                  _focus={{ borderColor: 'red.400' }}
                 />
               </FormControl>
 
               <FormControl mb={4}>
-                <FormLabel>Phone</FormLabel>
+                <FormLabel color="gray.200">Phone</FormLabel>
                 <Input
                   type="text"
                   name="phone"
                   value={formData.phone}
                   onChange={handleChange}
+                  bg="gray.800"
+                  borderColor="gray.600"
+                  color="gray.200"
+                  _focus={{ borderColor: 'red.400' }}
                 />
               </FormControl>
 
               <FormControl mb={4}>
-                <FormLabel>Type of Service (Max 20 chars)</FormLabel>
+                <FormLabel color="gray.200">Type of Service (Max 20 chars)</FormLabel>
                 <Input
                   type="text"
                   name="service_type"
                   maxLength={20}
                   value={formData.service_type}
                   onChange={handleChange}
+                  bg="gray.800"
+                  borderColor="gray.600"
+                  color="gray.200"
+                  _focus={{ borderColor: 'red.400' }}
                 />
               </FormControl>
             </form>
@@ -212,8 +245,8 @@ function App() {
                 fontWeight="bold"
                 color={
                   submitMessage.startsWith('Thank')
-                    ? 'green.500'
-                    : 'red.500'
+                    ? 'green.400'
+                    : 'red.300'
                 }
               >
                 {submitMessage}
@@ -221,11 +254,17 @@ function App() {
             )}
           </ModalBody>
 
-          <ModalFooter>
-            <Button variant="ghost" mr={3} onClick={onClose}>
+          <ModalFooter borderTopWidth="1px" borderColor="gray.600">
+            <Button variant="ghost" mr={3} onClick={onClose} color="gray.300">
               Cancel
             </Button>
-            <Button form="bookingForm" type="submit" colorScheme="blue">
+            <Button
+              form="bookingForm"
+              type="submit"
+              bg="red.500"
+              color="white"
+              _hover={{ bg: 'red.400' }}
+            >
               Submit
             </Button>
           </ModalFooter>
