@@ -5,6 +5,7 @@ const express = require('express');
 const cors = require('cors');
 const { Pool } = require('pg');
 const nodemailer = require('nodemailer');
+const twilio = require('twilio'); // <-- ADDED: Twilio
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -29,7 +30,7 @@ const transporter = nodemailer.createTransport({
   }
 });
 
-/* 
+/*
    If you were using Gmail instead, you'd do:
    const transporter = nodemailer.createTransport({
      service: 'gmail',
@@ -39,6 +40,12 @@ const transporter = nodemailer.createTransport({
      }
    });
 */
+
+// ADDED: Twilio credentials + client
+const accountSid = process.env.TWILIO_ACCOUNT_SID;
+const authToken = process.env.TWILIO_AUTH_TOKEN;
+const fromNumber = process.env.TWILIO_PHONE_NUMBER; // Twilio trial number or purchased number
+const client = twilio(accountSid, authToken);
 
 // Middleware
 app.use(cors());
@@ -140,6 +147,31 @@ Consulting Team
   } catch (error) {
     console.error('Error inserting booking or sending emails:', error);
     res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ADDED: Twilio SMS route
+app.post('/send-sms', async (req, res) => {
+  try {
+    const { to, message } = req.body;
+    if (!to || !message) {
+      return res.status(400).json({ error: 'Missing "to" or "message".' });
+    }
+
+    const twilioResponse = await client.messages.create({
+      body: message,
+      from: fromNumber,
+      to
+    });
+
+    res.json({
+      success: true,
+      sid: twilioResponse.sid,
+      status: twilioResponse.status
+    });
+  } catch (error) {
+    console.error('Error sending SMS:', error);
+    res.status(500).json({ error: 'Failed to send SMS.' });
   }
 });
 
