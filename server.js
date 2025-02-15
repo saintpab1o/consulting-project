@@ -38,8 +38,11 @@ const transporter = nodemailer.createTransport({
   }
 });
 
-// Test route
-app.get('/', (req, res) => {
+/**
+ * (Optional) Test route at /api/test
+ * You can visit https://<your-app>/api/test to confirm server is running
+ */
+app.get('/api/test', (req, res) => {
   res.send('Server is running. Routes: /book-call, /send-sms, /create-payment-intent, /complete-order');
 });
 
@@ -184,7 +187,9 @@ Email: ${email}
 Phone: ${phone || 'N/A'}
 
 Items:
-${cartItems.map((i) => `${i.name} x${i.quantity || 1} = $${i.price}`).join('\n')}
+${cartItems
+  .map((i) => `${i.name} x${i.quantity || 1} = $${i.price}`)
+  .join('\n')}
 
 Total: $${total}
 
@@ -230,7 +235,7 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'client', 'build', 'index.html'));
 });
 
-// <-- THIS is the fix: define PORT, then call app.listen()
+// Listen on the environment's PORT or 5000
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
