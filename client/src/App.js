@@ -7,8 +7,15 @@ import {
   Route,
   Link
 } from 'react-router-dom';
-import { Box, Flex, Heading, useColorModeValue } from '@chakra-ui/react';
-import Home from './Home';
+import {
+  Box,
+  Flex,
+  Heading,
+  useColorModeValue,
+  IconButton
+} from '@chakra-ui/react';
+import { FaShoppingCart } from 'react-icons/fa';
+import HomeBase from './HomeBase'; // or './Home' if your file is named Home.jsx
 import Services from './Services';
 import Cart from './Cart';
 import Success from './Success';
@@ -33,32 +40,64 @@ function App() {
         top={0}
         zIndex={10}
       >
-        <Heading fontSize="2xl">
+        {/* LOGO / BRAND */}
+        <Heading fontSize="2xl" whiteSpace="nowrap">
           PR Consulting
           <Box as="span" color="red.400" ml={1}>
             Group
           </Box>
         </Heading>
 
-        <Flex gap={6} fontWeight="medium" fontSize="lg">
-          <Box as={Link} to="/" cursor="pointer" _hover={{ color: 'red.300' }}>
+        {/* NAV LINKS */}
+        <Flex
+          gap={12}
+          fontWeight="medium"
+          fontSize="lg"
+          alignItems="center"
+        >
+          {/* HOME LINK */}
+          <Box
+            as={Link}
+            to="/"
+            position="relative"
+            cursor="pointer"
+            _hover={{ color: 'red.300', transform: 'scale(1.05)' }}
+            transition="all 0.2s ease"
+          >
             Home
           </Box>
-          <Box as={Link} to="/services" cursor="pointer" _hover={{ color: 'red.300' }}>
+
+          {/* SERVICES LINK */}
+          <Box
+            as={Link}
+            to="/services"
+            position="relative"
+            cursor="pointer"
+            _hover={{ color: 'red.300', transform: 'scale(1.05)' }}
+            transition="all 0.2s ease"
+          >
             Services
           </Box>
-          <Box as={Link} to="/cart" cursor="pointer" _hover={{ color: 'red.300' }}>
-            Cart
-          </Box>
-          <Box cursor="pointer" _hover={{ color: 'red.300' }}>About</Box>
-          <Box cursor="pointer" _hover={{ color: 'red.300' }}>Contact</Box>
+
+          {/* CART ICON LINK */}
+          <IconButton
+            as={Link}
+            to="/cart"
+            icon={<FaShoppingCart />}
+            variant="ghost"
+            aria-label="Cart"
+            fontSize="2xl"
+            color="white"
+            _hover={{ color: 'red.300', transform: 'scale(1.1)' }}
+            transition="all 0.2s ease"
+          />
         </Flex>
       </Flex>
 
       {/* ROUTES */}
       <Box flexGrow={1}>
         <Routes>
-          <Route path="/" element={<Home />} />
+          <Route path="/" element={<HomeBase />} />
           <Route path="/services" element={<Services />} />
           <Route path="/cart" element={<Cart />} />
           <Route path="/success" element={<Success />} />
