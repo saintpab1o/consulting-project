@@ -36,3 +36,4 @@ jspm_packages/
 coverage/
 
 .env.env
+/Users/pmagioncalda/Desktop/consulting-project/server/db.js
