@@ -10,11 +10,11 @@ import {
 import { Box, Flex, Heading, useColorModeValue } from '@chakra-ui/react';
 import Home from './Home';
 import Services from './Services';
+import Cart from './Cart';
+import Success from './Success';
 
 function App() {
-  // Always use black overlay for the nav
   const navBg = 'rgba(0,0,0,0.7)';
-  // Light text color for navbar
   const navTextColor = useColorModeValue('gray.100', 'gray.50');
 
   return (
@@ -47,6 +47,9 @@ function App() {
           <Box as={Link} to="/services" cursor="pointer" _hover={{ color: 'red.300' }}>
             Services
           </Box>
+          <Box as={Link} to="/cart" cursor="pointer" _hover={{ color: 'red.300' }}>
+            Cart
+          </Box>
           <Box cursor="pointer" _hover={{ color: 'red.300' }}>About</Box>
           <Box cursor="pointer" _hover={{ color: 'red.300' }}>Contact</Box>
         </Flex>
@@ -57,6 +60,8 @@ function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/services" element={<Services />} />
+          <Route path="/cart" element={<Cart />} />
+          <Route path="/success" element={<Success />} />
         </Routes>
       </Box>
 
@@ -68,7 +73,6 @@ function App() {
   );
 }
 
-// Wrap <App /> in <Router> and export
 function AppWrapper() {
   return (
     <Router>

@@ -1,16 +1,17 @@
-// server.js
+// server/server.js
 
 require('dotenv').config(); // Load environment variables from .env
 const express = require('express');
 const cors = require('cors');
 const { Pool } = require('pg');
 const nodemailer = require('nodemailer');
-const twilio = require('twilio'); // <-- ADDED: Twilio
+const twilio = require('twilio');
+const Stripe = require('stripe');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// 1) Configure Postgres from .env
+// Postgres
 const pool = new Pool({
   user: process.env.PGUSER,
   host: process.env.PGHOST,
@@ -19,59 +20,46 @@ const pool = new Pool({
   port: process.env.PGPORT
 });
 
-// 2) Nodemailer transporter (AIM example)
+// Nodemailer (AIM example)
 const transporter = nodemailer.createTransport({
   host: 'smtp.aol.com',
   port: 465,
   secure: true,
   auth: {
-    user: process.env.AIM_USER, // e.g. pau1magic@aim.com
-    pass: process.env.AIM_PASS  // e.g. your AIM app password or normal pass
+    user: process.env.AIM_USER,
+    pass: process.env.AIM_PASS
   }
 });
 
-/*
-   If you were using Gmail instead, you'd do:
-   const transporter = nodemailer.createTransport({
-     service: 'gmail',
-     auth: {
-       user: process.env.GMAIL_USER,
-       pass: process.env.GMAIL_PASS
-     }
-   });
-*/
-
-// ADDED: Twilio credentials + client
+// Twilio
 const accountSid = process.env.TWILIO_ACCOUNT_SID;
 const authToken = process.env.TWILIO_AUTH_TOKEN;
-const fromNumber = process.env.TWILIO_PHONE_NUMBER; // Twilio trial number or purchased number
-const client = twilio(accountSid, authToken);
+const fromNumber = process.env.TWILIO_PHONE_NUMBER;
+const twilioClient = twilio(accountSid, authToken);
 
-// Middleware
+// Stripe (Secret Key from .env)
+const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
+
 app.use(cors());
 app.use(express.json());
 
-// Simple root route
+// Simple test route
 app.get('/', (req, res) => {
-  res.send('Server is running - POST /book-call to create a new booking.');
+  res.send('Server is running. Routes: /book-call, /send-sms, /create-payment-intent');
 });
 
 /**
  * POST /book-call
- * 1) Insert booking data into 'accounts' table
- * 2) Send an email to YOU at pau1magic@aim.com with all details
- * 3) Send a confirmation email to the user (the email they entered)
+ * Insert booking data + send emails (unchanged)
  */
 app.post('/book-call', async (req, res) => {
   try {
     const { name, email, phone, service_type } = req.body;
-
-    // Basic validation
     if (!name || !email) {
       return res.status(400).json({ error: 'Name and email are required.' });
     }
 
-    // (A) Insert into Postgres
+    // Insert into Postgres
     const insertQuery = `
       INSERT INTO accounts (name, email, phone, service_type)
       VALUES ($1, $2, $3, $4)
@@ -80,66 +68,32 @@ app.post('/book-call', async (req, res) => {
     const result = await pool.query(insertQuery, [name, email, phone, service_type]);
     const newAccount = result.rows[0];
 
-    // (B) Send an email to YOU with the new account info
+    // Email to YOU
     const mailOptionsToMe = {
       from: `Consulting Website <${process.env.AIM_USER}>`,
-      to: 'pau1magic@aim.com', // YOU (any other partner's email can go here too, comma-separated)
+      to: 'pau1magic@aim.com',
       subject: `New Booking from ${newAccount.name}`,
-      text: `Hello,
-
-A new booking was created on the website.
+      text: `
+A new booking was created:
 
 Name: ${newAccount.name}
 Email: ${newAccount.email}
 Phone: ${newAccount.phone}
-Type of Service: ${newAccount.service_type}
+Service Type: ${newAccount.service_type}
 Created At: ${newAccount.created_at}
-
-Best regards,
-Your Consulting Website
-`,
-      html: `
-        <h2>New Booking Received</h2>
-        <p><strong>Name:</strong> ${newAccount.name}</p>
-        <p><strong>Email:</strong> ${newAccount.email}</p>
-        <p><strong>Phone:</strong> ${newAccount.phone}</p>
-        <p><strong>Service Type:</strong> ${newAccount.service_type}</p>
-        <p><strong>Created At:</strong> ${newAccount.created_at}</p>
-        <hr />
-        <p>This message was sent automatically from your Consulting Website.</p>
       `
     };
     await transporter.sendMail(mailOptionsToMe);
 
-    // (C) Send a confirmation email to the USER
+    // Confirmation email to USER
     const mailOptionsToUser = {
       from: `Consulting Website <${process.env.AIM_USER}>`,
-      to: email, // The email user typed in the form
+      to: email,
       subject: 'Thank You for Booking with Us!',
-      text: `Hello ${name},
-
-Thank you for booking a call with us!
-We received your details and will be in touch soon.
-
-Best Regards,
-Consulting Team
-`,
-      html: `
-        <p>Hello <strong>${name}</strong>,</p>
-        <p>Thank you for booking a call with us! We have received your details:</p>
-        <ul>
-          <li><strong>Name:</strong> ${name}</li>
-          <li><strong>Email:</strong> ${email}</li>
-          <li><strong>Phone:</strong> ${phone || 'N/A'}</li>
-          <li><strong>Service:</strong> ${service_type || 'N/A'}</li>
-        </ul>
-        <p>We will be in touch soon to discuss your needs.</p>
-        <p>Best Regards,<br/>Consulting Team</p>
-      `
+      text: `Hello ${name}, thanks for booking. We'll be in touch soon.`
     };
     await transporter.sendMail(mailOptionsToUser);
 
-    // (D) Send success response
     res.status(201).json({
       message: 'Booking submitted successfully, emails sent!',
       account: newAccount
@@ -150,7 +104,10 @@ Consulting Team
   }
 });
 
-// ADDED: Twilio SMS route
+/**
+ * POST /send-sms
+ * Twilio SMS route
+ */
 app.post('/send-sms', async (req, res) => {
   try {
     const { to, message } = req.body;
@@ -158,7 +115,7 @@ app.post('/send-sms', async (req, res) => {
       return res.status(400).json({ error: 'Missing "to" or "message".' });
     }
 
-    const twilioResponse = await client.messages.create({
+    const twilioResponse = await twilioClient.messages.create({
       body: message,
       from: fromNumber,
       to
@@ -175,7 +132,42 @@ app.post('/send-sms', async (req, res) => {
   }
 });
 
-// Start the server
+/**
+ * POST /create-payment-intent
+ * Accepts { items: [...], } from the cart
+ * Calculates total in cents, creates PaymentIntent => returns clientSecret
+ */
+app.post('/create-payment-intent', async (req, res) => {
+  try {
+    const { items } = req.body;
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ error: 'No items provided.' });
+    }
+
+    let totalAmount = 0;
+    items.forEach((item) => {
+      const qty = item.quantity || 1;
+      // If item.price <= 0 => fallback to $0.50
+      if (item.price <= 0) {
+        totalAmount += 50 * qty;
+      } else {
+        totalAmount += item.price * 100 * qty;
+      }
+    });
+
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: totalAmount,
+      currency: 'usd'
+      // Optionally add metadata or receipt_email
+    });
+
+    return res.json({ clientSecret: paymentIntent.client_secret });
+  } catch (error) {
+    console.error('Error creating payment intent:', error);
+    return res.status(500).json({ error: 'Could not create PaymentIntent' });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });

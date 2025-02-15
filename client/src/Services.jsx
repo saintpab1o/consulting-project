@@ -1,6 +1,6 @@
 // client/src/Services.jsx
 
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import {
   Box,
   Flex,
@@ -22,82 +22,18 @@ import {
   FormLabel,
   Input
 } from '@chakra-ui/react';
+import { useNavigate } from 'react-router-dom';
+import { CartContext } from './CartContext';
 
 function Services() {
-  // -----------------------------------------
-  // STATE FOR THE 3 SERVICE CARDS
-  // -----------------------------------------
-  const [artistTier, setArtistTier] = useState('3');           // Artist mgmt
-  const [consultingHours, setConsultingHours] = useState('1'); // Consulting
-  const [techOption] = useState('Free Consultation');          // Tech
+  const navigate = useNavigate();
+  const { addToCart } = useContext(CartContext);
 
-  // We'll track which "service_type" the user is booking for the 3-card modal
-  const [serviceType, setServiceType] = useState('');
+  const [artistTier, setArtistTier] = useState('3');
+  const [consultingHours, setConsultingHours] = useState('1');
+  const [techOption] = useState('Free Consultation');
 
-  // Booking form data & submission response (for the 3 cards)
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    phone: ''
-  });
-  const [submitMessage, setSubmitMessage] = useState('');
-
-  const {
-    isOpen: isServiceModalOpen,
-    onOpen: onServiceModalOpen,
-    onClose: onServiceModalClose
-  } = useDisclosure();
-
-  // For the "Book Now" buttons
-  const handleBookNow = (product) => {
-    let finalServiceType = '';
-    if (product === 'Artist') {
-      finalServiceType = `Artist Management (${artistTier} months)`;
-    } else if (product === 'Consulting') {
-      finalServiceType = `General Consulting (${consultingHours} hrs)`;
-    } else if (product === 'Tech') {
-      finalServiceType = `Tech / Development (${techOption})`;
-    }
-    setServiceType(finalServiceType);
-
-    // Reset fields & messages
-    setFormData({ name: '', email: '', phone: '' });
-    setSubmitMessage('');
-
-    onServiceModalOpen();
-  };
-
-  const handleServiceSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      const payload = {
-        name: formData.name,
-        email: formData.email,
-        phone: formData.phone,
-        service_type: serviceType
-      };
-
-      const response = await fetch('http://localhost:5000/book-call', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      const data = await response.json();
-
-      if (response.ok) {
-        setSubmitMessage('Thank you! Your booking was submitted successfully.');
-      } else {
-        setSubmitMessage(`Error: ${data.error || 'Could not submit booking'}`);
-      }
-    } catch (error) {
-      console.error('Submission error:', error);
-      setSubmitMessage('Submission failed. Try again later.');
-    }
-  };
-
-  // -----------------------------------------
-  // FREE CONSULTATION BUTTON & MODAL
-  // -----------------------------------------
+  // FREE CONSULTATION MODAL
   const {
     isOpen: isConsultModalOpen,
     onOpen: onConsultModalOpen,
@@ -126,7 +62,6 @@ function Services() {
         body: JSON.stringify(consultFormData),
       });
       const data = await response.json();
-
       if (response.ok) {
         setConsultSubmitMessage('Thank you! Your booking was submitted successfully.');
       } else {
@@ -138,19 +73,39 @@ function Services() {
     }
   };
 
+  // ADD TO CART => redirect to /cart
+  const handleAddToCart = (serviceName) => {
+    let finalName = '';
+    let price = 0;
+
+    if (serviceName === 'Artist') {
+      finalName = `Artist Management (${artistTier} months)`;
+      price = 999;
+    } else if (serviceName === 'Consulting') {
+      finalName = `General Consulting (${consultingHours} hrs)`;
+      price = 199;
+    } else if (serviceName === 'Tech') {
+      finalName = `Tech / Development (${techOption})`;
+      price = 0; // This could cause Stripe to fail if total is $0.
+    }
+
+    addToCart({
+      id: serviceName.toLowerCase(),
+      name: finalName,
+      price
+    });
+
+    navigate('/cart');
+  };
+
   return (
     <Box w="full" minH="100vh" display="flex" flexDirection="column" bg="black">
-      {/* 
-        HERO / BACKGROUND SECTION 
-        (Dark & blurred background image)
-      */}
       <Box
         position="relative"
         display="flex"
         alignItems="center"
         justifyContent="center"
         overflow="hidden"
-        // Reduced hero height for more space below
         h={{ base: '40vh', md: '45vh' }}
       >
         <Image
@@ -162,12 +117,10 @@ function Services() {
           w="full"
           h="full"
           objectFit="cover"
-          // Blurred & darkened
           filter="blur(4px) brightness(0.5)"
           zIndex={0}
         />
 
-        {/* Hero text/heading */}
         <Box textAlign="center" zIndex={1} px={4} maxW="2xl">
           <Heading
             fontSize={{ base: '3xl', md: '5xl', lg: '6xl' }}
@@ -186,7 +139,6 @@ function Services() {
             Explore our range of solutions to meet your unique needs.
           </Text>
 
-          {/* FREE CONSULTATION BUTTON under "Our Services" */}
           <Button
             bg="red.500"
             color="white"
@@ -200,18 +152,16 @@ function Services() {
         </Box>
       </Box>
 
-      {/* SERVICE CARDS SECTION */}
       <Flex
         justify="center"
         align="flex-start"
         wrap="wrap"
         gap={8}
         zIndex={2}
-        // Increase the negative margin to raise the cards higher
         mt={-16}
         px={4}
       >
-        {/* 1) Artist Management Card */}
+        {/* Artist Mgmt Card */}
         <VStack
           w="280px"
           minH="580px"
@@ -235,12 +185,11 @@ function Services() {
           <Text color="gray.300" fontSize="sm" textAlign="center">
             Professional management of artists with flexible monthly tiers.
           </Text>
-
           <Box w="full">
             <Text color="gray.200" mb={1}>Choose Duration:</Text>
             <Select
               value={artistTier}
-              onChange={(e) => setArtistTier(e.target.value)}
+              onChange={e => setArtistTier(e.target.value)}
               bg="gray.700"
               borderColor="gray.600"
               color="white"
@@ -252,16 +201,13 @@ function Services() {
               <option value="12">12 months</option>
             </Select>
           </Box>
-
-          <Text color="gray.200">
-            Price: <strong>$999</strong> (example)
-          </Text>
-          <Button colorScheme="red" onClick={() => handleBookNow('Artist')}>
-            Book Now
+          <Text color="gray.200">Price: <strong>$999</strong> (example)</Text>
+          <Button colorScheme="red" onClick={() => handleAddToCart('Artist')}>
+            Add to Cart
           </Button>
         </VStack>
 
-        {/* 2) General Consulting Card */}
+        {/* General Consulting Card */}
         <VStack
           w="280px"
           minH="580px"
@@ -285,12 +231,11 @@ function Services() {
           <Text color="gray.300" fontSize="sm" textAlign="center">
             Expert advice and solutions for various business challenges.
           </Text>
-
           <Box w="full">
             <Text color="gray.200" mb={1}>Choose Hours:</Text>
             <Select
               value={consultingHours}
-              onChange={(e) => setConsultingHours(e.target.value)}
+              onChange={e => setConsultingHours(e.target.value)}
               bg="gray.700"
               borderColor="gray.600"
               color="white"
@@ -301,16 +246,13 @@ function Services() {
               <option value="8">8 hours</option>
             </Select>
           </Box>
-
-          <Text color="gray.200">
-            Price: <strong>$199/hr</strong> (example)
-          </Text>
-          <Button colorScheme="red" onClick={() => handleBookNow('Consulting')}>
-            Book Now
+          <Text color="gray.200">Price: <strong>$199/hr</strong> (example)</Text>
+          <Button colorScheme="red" onClick={() => handleAddToCart('Consulting')}>
+            Add to Cart
           </Button>
         </VStack>
 
-        {/* 3) Tech / Development Card */}
+        {/* Tech / Development Card */}
         <VStack
           w="280px"
           minH="580px"
@@ -334,151 +276,27 @@ function Services() {
           <Text color="gray.300" fontSize="sm" textAlign="center">
             End-to-end software development and technical solutions.
           </Text>
-
           <Box w="full">
             <Text color="gray.200" mb={1}>Consultation:</Text>
             <Select
               bg="gray.700"
               borderColor="gray.600"
               color="white"
-              _focus={{ borderColor: 'red.400' }}
               isReadOnly
               cursor="not-allowed"
+              _focus={{ borderColor: 'red.400' }}
             >
               <option value="free">Free Consultation</option>
             </Select>
           </Box>
-
           <Text color="gray.200">Price: <strong>Custom Quote</strong></Text>
-          <Button colorScheme="red" onClick={() => handleBookNow('Tech')}>
-            Book Now
+          <Button colorScheme="red" onClick={() => handleAddToCart('Tech')}>
+            Add to Cart
           </Button>
         </VStack>
       </Flex>
 
-      {/* MODAL for the 3 SERVICE CARDS */}
-      <Modal
-        isOpen={isServiceModalOpen}
-        onClose={() => {
-          setServiceType('');
-          setSubmitMessage('');
-          onServiceModalClose();
-        }}
-        isCentered
-        size="lg"
-      >
-        <ModalOverlay />
-        <ModalContent
-          bgGradient="linear(to-br, #1a1a1a, #2a2a2a)"
-          border="1px solid"
-          borderColor="gray.700"
-          borderRadius="2xl"
-          boxShadow="dark-lg"
-        >
-          <ModalHeader borderBottomWidth="1px" borderColor="gray.600" color="red.300">
-            Book Service
-          </ModalHeader>
-          <ModalCloseButton color="gray.200" />
-
-          <ModalBody pb={6}>
-            <Text color="gray.100" mb={4}>
-              Booking for: <strong>{serviceType || 'No Service Selected'}</strong>
-            </Text>
-            <form id="serviceBookingForm" onSubmit={handleServiceSubmit}>
-              <FormControl mb={4}>
-                <FormLabel color="gray.200">Name</FormLabel>
-                <Input
-                  type="text"
-                  name="name"
-                  value={formData.name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, name: e.target.value })
-                  }
-                  required
-                  bg="gray.800"
-                  borderColor="gray.600"
-                  color="gray.200"
-                  _focus={{ borderColor: 'red.400' }}
-                />
-              </FormControl>
-
-              <FormControl mb={4}>
-                <FormLabel color="gray.200">Email</FormLabel>
-                <Input
-                  type="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={(e) =>
-                    setFormData({ ...formData, email: e.target.value })
-                  }
-                  required
-                  bg="gray.800"
-                  borderColor="gray.600"
-                  color="gray.200"
-                  _focus={{ borderColor: 'red.400' }}
-                />
-              </FormControl>
-
-              <FormControl mb={4}>
-                <FormLabel color="gray.200">Phone</FormLabel>
-                <Input
-                  type="text"
-                  name="phone"
-                  value={formData.phone}
-                  onChange={(e) =>
-                    setFormData({ ...formData, phone: e.target.value })
-                  }
-                  bg="gray.800"
-                  borderColor="gray.600"
-                  color="gray.200"
-                  _focus={{ borderColor: 'red.400' }}
-                />
-              </FormControl>
-            </form>
-
-            {submitMessage && (
-              <Text
-                mt={2}
-                fontWeight="bold"
-                color={
-                  submitMessage.startsWith('Thank')
-                    ? 'green.400'
-                    : 'red.300'
-                }
-              >
-                {submitMessage}
-              </Text>
-            )}
-          </ModalBody>
-
-          <ModalFooter borderTopWidth="1px" borderColor="gray.600">
-            <Button
-              variant="ghost"
-              mr={3}
-              onClick={() => {
-                setServiceType('');
-                setSubmitMessage('');
-                onServiceModalClose();
-              }}
-              color="gray.300"
-            >
-              Cancel
-            </Button>
-            <Button
-              form="serviceBookingForm"
-              type="submit"
-              bg="red.500"
-              color="white"
-              _hover={{ bg: 'red.400' }}
-              onClick={handleServiceSubmit}
-            >
-              Submit
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
-
-      {/* MODAL for the FREE CONSULTATION BUTTON */}
+      {/* FREE CONSULTATION MODAL */}
       <Modal
         isOpen={isConsultModalOpen}
         onClose={onConsultModalClose}
@@ -514,7 +332,6 @@ function Services() {
                   _focus={{ borderColor: 'red.400' }}
                 />
               </FormControl>
-
               <FormControl mb={4}>
                 <FormLabel color="gray.200">Email</FormLabel>
                 <Input
@@ -529,7 +346,6 @@ function Services() {
                   _focus={{ borderColor: 'red.400' }}
                 />
               </FormControl>
-
               <FormControl mb={4}>
                 <FormLabel color="gray.200">Phone</FormLabel>
                 <Input
@@ -543,11 +359,8 @@ function Services() {
                   _focus={{ borderColor: 'red.400' }}
                 />
               </FormControl>
-
               <FormControl mb={4}>
-                <FormLabel color="gray.200">
-                  Type of Service (Max 20 chars)
-                </FormLabel>
+                <FormLabel color="gray.200">Type of Service (Max 20 chars)</FormLabel>
                 <Input
                   type="text"
                   name="service_type"
