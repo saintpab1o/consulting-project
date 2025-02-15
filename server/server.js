@@ -1,6 +1,6 @@
 // server/server.js
 
-require('dotenv').config(); // Load environment variables from .env
+require('dotenv').config(); // .env must have STRIPE_SECRET_KEY, AIM_USER, etc.
 const express = require('express');
 const cors = require('cors');
 const { Pool } = require('pg');
@@ -37,20 +37,20 @@ const authToken = process.env.TWILIO_AUTH_TOKEN;
 const fromNumber = process.env.TWILIO_PHONE_NUMBER;
 const twilioClient = twilio(accountSid, authToken);
 
-// Stripe (Secret Key from .env)
+// Stripe
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 
 app.use(cors());
 app.use(express.json());
 
-// Simple test route
+// Test route
 app.get('/', (req, res) => {
-  res.send('Server is running. Routes: /book-call, /send-sms, /create-payment-intent');
+  res.send('Server is running. Routes: /book-call, /send-sms, /create-payment-intent, /complete-order');
 });
 
 /**
  * POST /book-call
- * Insert booking data + send emails (unchanged)
+ * Insert booking + send emails (unchanged)
  */
 app.post('/book-call', async (req, res) => {
   try {
@@ -59,7 +59,6 @@ app.post('/book-call', async (req, res) => {
       return res.status(400).json({ error: 'Name and email are required.' });
     }
 
-    // Insert into Postgres
     const insertQuery = `
       INSERT INTO accounts (name, email, phone, service_type)
       VALUES ($1, $2, $3, $4)
@@ -99,14 +98,14 @@ Created At: ${newAccount.created_at}
       account: newAccount
     });
   } catch (error) {
-    console.error('Error inserting booking or sending emails:', error);
+    console.error('Error in /book-call:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
 
 /**
  * POST /send-sms
- * Twilio SMS route
+ * Twilio SMS
  */
 app.post('/send-sms', async (req, res) => {
   try {
@@ -134,8 +133,7 @@ app.post('/send-sms', async (req, res) => {
 
 /**
  * POST /create-payment-intent
- * Accepts { items: [...], } from the cart
- * Calculates total in cents, creates PaymentIntent => returns clientSecret
+ * For Stripe Payment
  */
 app.post('/create-payment-intent', async (req, res) => {
   try {
@@ -147,7 +145,7 @@ app.post('/create-payment-intent', async (req, res) => {
     let totalAmount = 0;
     items.forEach((item) => {
       const qty = item.quantity || 1;
-      // If item.price <= 0 => fallback to $0.50
+      // fallback if item.price <= 0 => $0.50
       if (item.price <= 0) {
         totalAmount += 50 * qty;
       } else {
@@ -158,13 +156,80 @@ app.post('/create-payment-intent', async (req, res) => {
     const paymentIntent = await stripe.paymentIntents.create({
       amount: totalAmount,
       currency: 'usd'
-      // Optionally add metadata or receipt_email
+      // Optionally add receipt_email, metadata, etc.
     });
 
-    return res.json({ clientSecret: paymentIntent.client_secret });
+    res.json({ clientSecret: paymentIntent.client_secret });
   } catch (error) {
     console.error('Error creating payment intent:', error);
-    return res.status(500).json({ error: 'Could not create PaymentIntent' });
+    res.status(500).json({ error: 'Could not create PaymentIntent' });
+  }
+});
+
+/**
+ * POST /complete-order
+ * After a successful Stripe payment, we send an email to you + the user
+ */
+app.post('/complete-order', async (req, res) => {
+  try {
+    const { name, email, phone, cartItems, total } = req.body;
+    if (!name || !email || !cartItems) {
+      return res.status(400).json({ error: 'Missing required fields.' });
+    }
+
+    // (A) Email to YOU with purchase details
+    const mailOptionsToMe = {
+      from: `Consulting Website <${process.env.AIM_USER}>`,
+      to: 'pau1magic@aim.com', // your email
+      subject: `New Purchase from ${name}`,
+      text: `
+A new purchase was completed:
+
+Name: ${name}
+Email: ${email}
+Phone: ${phone || 'N/A'}
+
+Items:
+${cartItems.map((i) => `${i.name} x${i.quantity || 1} = $${i.price}`).join('\n')}
+
+Total: $${total}
+
+- Sent automatically from your website.
+      `
+    };
+    await transporter.sendMail(mailOptionsToMe);
+
+    // (B) Confirmation email to USER
+    const mailOptionsToUser = {
+      from: `Consulting Website <${process.env.AIM_USER}>`,
+      to: email,
+      subject: 'Thank You for Your Purchase!',
+      text: `Hello ${name},
+
+Thank you for your purchase!
+
+You bought:
+${cartItems
+  .map((i) => `${i.name} x${i.quantity || 1} = $${i.price}`)
+  .join('\n')}
+
+Total: $${total}
+
+We appreciate your business! We'll be in touch soon.
+
+Best regards,
+Your Consulting Website
+`
+    };
+    await transporter.sendMail(mailOptionsToUser);
+
+    // If you want to insert into DB, do that here:
+    // e.g. `INSERT INTO orders(...) VALUES(...)`
+
+    res.json({ message: 'Order emails sent successfully!' });
+  } catch (error) {
+    console.error('Error in /complete-order:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 

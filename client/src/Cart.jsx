@@ -14,7 +14,7 @@ import {
   Input
 } from '@chakra-ui/react';
 
-// 1) Stripe libs
+// Stripe
 import { loadStripe } from '@stripe/stripe-js';
 import {
   Elements,
@@ -23,7 +23,6 @@ import {
   useElements
 } from '@stripe/react-stripe-js';
 
-// 2) Your publishable test key
 const stripePromise = loadStripe('pk_test_sMhaRpfdu5ycIoFm0mBrEmcW');
 
 function Cart() {
@@ -33,10 +32,8 @@ function Cart() {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
-  // For display
   const total = cartItems.reduce((acc, item) => acc + (item.price * (item.quantity || 1)), 0);
 
-  // On mount or whenever cart changes, create the PaymentIntent
   useEffect(() => {
     if (cartItems.length === 0) {
       setClientSecret('');
@@ -127,13 +124,12 @@ function Cart() {
             Total: ${total}
           </Heading>
 
-          {loading && <Text mt={4} color="gray.300">Creating payment intent...</Text>}
-          {errorMsg && <Text mt={4} color="red.300">{errorMsg}</Text>}
+          {loading && <Text color="gray.300" mt={4}>Creating payment intent...</Text>}
+          {errorMsg && <Text color="red.300" mt={4}>{errorMsg}</Text>}
 
-          {/* If we have a clientSecret, render the PaymentForm below */}
           {!loading && clientSecret && (
             <Elements stripe={stripePromise} options={{ clientSecret }}>
-              <PaymentForm />
+              <PaymentForm cartItems={cartItems} total={total} />
             </Elements>
           )}
         </Box>
@@ -144,9 +140,10 @@ function Cart() {
 
 /**
  * PaymentForm 
- * Single form for name, email, phone, plus PaymentElement for card details
+ * - single form for name, email, phone, plus PaymentElement
+ * - after payment success => call /complete-order
  */
-function PaymentForm() {
+function PaymentForm({ cartItems, total }) {
   const stripe = useStripe();
   const elements = useElements();
 
@@ -174,11 +171,10 @@ function PaymentForm() {
     setIsProcessing(true);
 
     try {
-      // Confirm payment with PaymentElement
+      // 1) Confirm Payment w/ Stripe
       const { error, paymentIntent } = await stripe.confirmPayment({
         elements,
         confirmParams: {
-          // Attach user info as needed
           receipt_email: formData.email,
           payment_method_data: {
             billing_details: {
@@ -190,19 +186,41 @@ function PaymentForm() {
         redirect: 'if_required'
       });
 
-      setIsProcessing(false);
-
       if (error) {
         console.error('Payment error:', error);
         setPayError(error.message || 'Payment failed. Try again.');
-      } else if (paymentIntent && paymentIntent.status === 'succeeded') {
-        setSuccessMsg('Payment successful! Thank you.');
-        // Optionally redirect to /success: window.location = '/success';
+        setIsProcessing(false);
+        return;
+      }
+
+      if (paymentIntent && paymentIntent.status === 'succeeded') {
+        // 2) Payment success => call /complete-order to send emails
+        const orderResponse = await fetch('http://localhost:5000/complete-order', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: formData.name,
+            email: formData.email,
+            phone: formData.phone,
+            cartItems,
+            total
+          })
+        });
+        const orderData = await orderResponse.json();
+        setIsProcessing(false);
+
+        if (orderResponse.ok) {
+          setSuccessMsg('Payment successful! ' + orderData.message);
+        } else {
+          // Payment succeeded, but email might fail => show partial error
+          setSuccessMsg('Payment successful! However, email sending failed: ' + (orderData.error || 'Unknown'));
+        }
       } else {
         setPayError('Payment was not completed. Please try again.');
+        setIsProcessing(false);
       }
     } catch (err) {
-      console.error('Error confirming payment:', err);
+      console.error('Error confirming payment or sending emails:', err);
       setPayError('Something went wrong. Please try again.');
       setIsProcessing(false);
     }
@@ -210,7 +228,6 @@ function PaymentForm() {
 
   return (
     <Box as="form" onSubmit={handleSubmit} bg="gray.800" p={4} borderRadius="md" mt={6}>
-      {/* Name, Email, Phone */}
       <FormControl mb={4}>
         <FormLabel color="gray.300">Name</FormLabel>
         <Input
@@ -253,12 +270,7 @@ function PaymentForm() {
       </FormControl>
 
       <Text color="gray.200" mb={2}>Card Details:</Text>
-      <PaymentElement
-        id="payment-element"
-        style={{
-          base: { color: '#ffffff' }
-        }}
-      />
+      <PaymentElement id="payment-element" style={{ base: { color: '#ffffff' } }} />
 
       {payError && (
         <Text color="red.300" mt={3} fontWeight="bold">
