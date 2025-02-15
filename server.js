@@ -1,35 +1,22 @@
-// server/server.js
+// server.js
 
-require('dotenv').config(); // .env must have STRIPE_SECRET_KEY, AIM_USER, etc.
+require('dotenv').config(); // Load all environment variables from .env
 const express = require('express');
 const cors = require('cors');
-const { Pool } = require('pg');
+const path = require('path');
 const nodemailer = require('nodemailer');
 const twilio = require('twilio');
 const Stripe = require('stripe');
+const pool = require('./db'); // Import the single Pool instance
 
+// Create our Express app
 const app = express();
+
+// For environment port or fallback 5000
 const PORT = process.env.PORT || 5000;
 
-// Postgres
-const pool = new Pool({
-  user: process.env.PGUSER,
-  host: process.env.PGHOST,
-  database: process.env.PGDATABASE,
-  password: process.env.PGPASSWORD,
-  port: process.env.PGPORT
-});
-
-// Nodemailer (AIM example)
-const transporter = nodemailer.createTransport({
-  host: 'smtp.aol.com',
-  port: 465,
-  secure: true,
-  auth: {
-    user: process.env.AIM_USER,
-    pass: process.env.AIM_PASS
-  }
-});
+app.use(cors());
+app.use(express.json());
 
 // Twilio
 const accountSid = process.env.TWILIO_ACCOUNT_SID;
@@ -40,8 +27,16 @@ const twilioClient = twilio(accountSid, authToken);
 // Stripe
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 
-app.use(cors());
-app.use(express.json());
+// Nodemailer (AIM / AOL example)
+const transporter = nodemailer.createTransport({
+  host: 'smtp.aol.com',
+  port: 465,
+  secure: true,
+  auth: {
+    user: process.env.AIM_USER,
+    pass: process.env.AIM_PASS
+  }
+});
 
 // Test route
 app.get('/', (req, res) => {
@@ -50,7 +45,7 @@ app.get('/', (req, res) => {
 
 /**
  * POST /book-call
- * Insert booking + send emails (unchanged)
+ * Insert booking + send emails
  */
 app.post('/book-call', async (req, res) => {
   try {
@@ -156,7 +151,6 @@ app.post('/create-payment-intent', async (req, res) => {
     const paymentIntent = await stripe.paymentIntents.create({
       amount: totalAmount,
       currency: 'usd'
-      // Optionally add receipt_email, metadata, etc.
     });
 
     res.json({ clientSecret: paymentIntent.client_secret });
@@ -180,7 +174,7 @@ app.post('/complete-order', async (req, res) => {
     // (A) Email to YOU with purchase details
     const mailOptionsToMe = {
       from: `Consulting Website <${process.env.AIM_USER}>`,
-      to: 'pau1magic@aim.com', // your email
+      to: 'pau1magic@aim.com',
       subject: `New Purchase from ${name}`,
       text: `
 A new purchase was completed:
@@ -223,9 +217,6 @@ Your Consulting Website
     };
     await transporter.sendMail(mailOptionsToUser);
 
-    // If you want to insert into DB, do that here:
-    // e.g. `INSERT INTO orders(...) VALUES(...)`
-
     res.json({ message: 'Order emails sent successfully!' });
   } catch (error) {
     console.error('Error in /complete-order:', error);
@@ -233,6 +224,13 @@ Your Consulting Website
   }
 });
 
+// Serve React build in production
+app.use(express.static(path.join(__dirname, 'client', 'build')));
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'client', 'build', 'index.html'));
+});
+
+// <-- THIS is the fix: define PORT, then call app.listen()
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
